@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: to-do-app-deployment
+  namespace: Your Namespace Name 
+  annotations:
+    argocd-image-updater.argoproj.io/image-list: to-do-app=Your_AWS_ID.dkr.ecr.ap-northeast-2.amazonaws.com/to-do-app
+    argocd-image-updater.argoproj.io/to-do-app.update-strategy: latest
+    argocd-image-updater.argoproj.io/write-back-method: argocd
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: to-do-app
+  template:
+    metadata:
+      labels:
+        app: to-do-app
+    spec:
+      containers:
+      - name: to-do-app
+        image: Your_AWS_ID.dkr.ecr.ap-northeast-2.amazonaws.com/to-do-app:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 5000
+

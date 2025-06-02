@@ -1,0 +1,4 @@
+resources:
+  - to_do_app.yaml
+  - to_do_svc.yaml
+

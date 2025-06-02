@@ -1,0 +1,81 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: argocd-image-updater
+  namespace: argocd
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ecr-auth-script
+  namespace: argocd
+data:
+  auth.sh: |
+    #!/bin/sh
+    aws ecr get-authorization-token --region ap-northeast-2 --output text \
+      --query 'authorizationData[].authorizationToken' | base64 -d
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: image-updater-config
+  namespace: argocd
+data:
+  registries.conf: |
+    registries:
+      - name: ECR
+        api_url: "https://Your_AWS_ID.dkr.ecr.ap-northeast-2.amazonaws.com"
+        prefix: "Your_AWS_ID.dkr.ecr.ap-northeast-2.amazonaws.com"
+        ping: true
+        credentials: "ext:/scripts/auth.sh"
+        credsexpire: 10h
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-image-updater
+  namespace: argocd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-image-updater
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: argocd-image-updater
+    spec:
+      serviceAccountName: argocd-image-updater
+      volumes:
+        - name: auth-script-vol
+          configMap:
+            name: ecr-auth-script
+            defaultMode: 0755
+        - name: updater-config-vol
+          configMap:
+            name: image-updater-config
+      containers:
+        - name: updater
+          image: cielciel/argocd-image-updater
+          imagePullPolicy: Always
+          command: ["/usr/local/bin/argocd-image-updater"]
+          args: ["run"]
+          volumeMounts:
+            - name: auth-script-vol
+              mountPath: /scripts/auth.sh
+              subPath: auth.sh
+            - name: updater-config-vol
+              mountPath: /app/config
+          env:
+            - name: ARGOCD_SERVER
+              value: "argocd-server.argocd.svc"
+            - name: ARGOCD_INSECURE
+              value: "true"
+            - name: ARGOCD_PLAINTEXT
+              value: "true"
+            - name: ARGOCD_GRPC_WEB
+              value: "true"
+            - name: ARGOCD_IMAGE_UPDATER_LOGLEVEL
+              value: "debug"
+
